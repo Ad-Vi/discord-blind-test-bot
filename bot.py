@@ -66,7 +66,7 @@ async def vuvuzela(ctxt):
     description='Launch the blindtest',
     pass_context=True,
 )
-async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=15):
+async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
     global is_blindest_running, current_music, channel
     # grab the user who sent the command
     user=ctxt.message.author
@@ -82,7 +82,7 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=15):
     else:
         voice = await voice_channel.connect()
     is_blindest_running = True
-    await channel.send("Let's go for the blind test !")
+    await channel.send(f"Let's go for the blind test !  {nb_music} musics will be played for {duration} seconds each !")
     #get playlist
     if playlist_name == None:
         discography = full_discography()
@@ -100,12 +100,15 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=15):
         if voice.is_playing():
             voice.stop()
         i += 1
+        await channel.send(f"It was {current_music.title} by {current_music.author}. Music {i} out of {nb_music}")
+        await asyncio.sleep(10)
     is_blindest_running = False
     await voice.disconnect()
     # show points
     await ctxt.send("Fin du blindtest !")
     for user in user_points:
         await ctxt.send(str(user.name) + " : " + str(user_points[user]))
+    user_points = {}
 
 @bot.command(
     name='fin_blindtest',
@@ -126,8 +129,56 @@ async def fin_blindtest(ctxt):
     await ctxt.send("Fin du blindtest !")
     for user in user_points:
         await ctxt.send(user.name + " : " + user_points[user])
- 
- 
+    user_points = {}
+    
+@bot.command(
+    name='see_musics',
+    description='See the musics',
+    pass_context=True,
+)
+async def see_musics(ctxt):
+    to_send = ""
+    # open the index file
+    with open('index.csv', 'r') as f:
+        for line in f:
+            to_send += line
+    await ctxt.send(to_send)
+        
+@bot.command(
+    name='see_playlists',
+    description='See the playlists',
+    pass_context=True,
+)
+async def see_playlists(ctxt):
+    to_send = ""
+    send = []
+    # open the index file
+    with open('index.csv', 'r') as f:
+        for line in f:
+            if len(line.split(";")) > 2:
+                if line.split(";")[2] not in send:
+                    to_send += line.split(";")[2] + "\n"
+                    send += [line.split(";")[2]]
+    await ctxt.send(to_send)
+
+@bot.command(
+    name='delete_music',
+    description='Delete a music',
+    pass_context=True,
+)
+async def delete_music(ctxt, title=None, author=None):
+    if title == None or author == None or len(title) == 0 or len(author) == 0:
+        await ctxt.send("You need to pass the title and the author of the music to delete \n use : $delete_music <title><author>")
+        return
+    # open the index file
+    with open('index.csv', 'r') as f:
+        lines = f.readlines()
+    with open('index.csv', 'w') as f:
+        for line in lines:
+            if line.split(";")[0] != title and line.split(";")[1] != author:
+                f.write(line)
+    await ctxt.send(f"Music {title} deleted")    
+    
 @bot.event
 async def on_ready():
     print("Le blind Test est prêt !")

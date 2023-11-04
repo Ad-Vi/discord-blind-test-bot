@@ -1,11 +1,15 @@
 import discord
 from discord.ext import commands
 from discord.utils import get
+from discord import app_commands
 import asyncio
 from music_acquisition import Music, new_music, playlist, full_discography
 
-prefix= "$"
+
+prefix= "/"
 intents = discord.Intents.all() 
+client = discord.Client(intents=intents)
+tree = discord.app_commands.CommandTree(client)
 intents.message_content = True
 bot=commands.Bot(command_prefix=prefix, intents=intents)
 is_blindest_running = False
@@ -182,8 +186,22 @@ async def delete_music(ctxt, title=None, author=None):
 @bot.event
 async def on_ready():
     print("Le blind Test est prêt !")
+    # send list of command to discord
+    try:
+        synced = await bot.tree.sync()
+        print(f'Synced {len(synced)} command(s)')
+    except Exception as e:
+        print(e)
     await bot.change_presence(activity=discord.Game(name="Blind Test"))
     
+@bot.tree.command(name='ping',description='Retourne la latence du bot.')
+async def ping(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title = f'Pong! :ping_pong:',
+        description = f'latence = {round(bot.latency * 1000)}ms'
+    )
+    await interaction.response.send_message(embed=embed)
+    return
 
 @bot.event
 async def on_message(message):

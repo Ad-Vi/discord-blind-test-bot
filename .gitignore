@@ -3,3 +3,4 @@ youtubestreamer.py
 audios/
 __pycache__/
 token.txt
+index.csv

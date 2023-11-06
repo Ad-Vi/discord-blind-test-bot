@@ -67,7 +67,7 @@ async def vuvuzela(ctxt):
     pass_context=True,
 )
 async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
-    global is_blindest_running, current_music, channel, user_points_correct_on_this_round
+    global is_blindest_running, current_music, channel, user_points_correct_on_this_round, user_points
     # grab the user who sent the command
     user=ctxt.message.author
     voice_channel=user.voice.channel
@@ -117,7 +117,6 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
     pass_context=True,
 )
 async def fin_blindtest(ctxt):
-    await ctxt.send("Fin du blindtest !")
     # get the user channel
     user=ctxt.message.author
     channel = user.get_channel()
@@ -144,8 +143,7 @@ async def see_musics(ctxt):
     with open('index.csv', 'r') as f:
         for line in f:
             to_send += 1
-    await ctxt.send("Nombre de musiques ajoutées à la DB du bot :", str(to_send))
-        
+    await ctxt.send("Nombre de musiques ajoutées à la DB du bot :"+ str(to_send))
 @bot.command(
     name='see_playlists',
     description='See the playlists',

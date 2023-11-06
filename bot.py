@@ -95,7 +95,9 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
         # get one random music
         current_music = discography.get_one_music()
         print(current_music.title)
-        voice.play(discord.FFmpegPCMAudio(executable='/usr/bin/ffmpeg', source=current_music.path))
+        start_time = int(current_music.length) /10
+        ffmpeg_options = f'-ss {start_time}'
+        voice.play(discord.FFmpegPCMAudio(executable='/usr/bin/ffmpeg', source=current_music.path, options=ffmpeg_options))
         await asyncio.sleep(duration)
         if voice.is_playing():
             voice.stop()
@@ -118,8 +120,8 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
 )
 async def fin_blindtest(ctxt):
     # get the user channel
-    user=ctxt.message.author
-    channel = user.get_channel()
+    # user=ctxt.message.author
+    # channel = user.get_channel()
     # Disconnect the bot from voice channel
     voice = get(bot.voice_clients, guild=ctxt.guild)
     if voice and voice.is_connected():

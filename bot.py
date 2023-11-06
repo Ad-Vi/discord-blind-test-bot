@@ -3,8 +3,9 @@ from discord.ext import commands
 from discord.utils import get
 from discord import app_commands
 import asyncio
+from typing import Optional
 from music_acquisition import Music, new_music, playlist, full_discography
-
+import csv
 
 prefix= "/"
 intents = discord.Intents.all() 
@@ -22,25 +23,34 @@ token = ""
 with open("token.txt", "r") as f:
     token = f.read()
 
-@bot.command()
-async def newmusic(ctx, link=None, title=None, author=None, playlist=None):
+@bot.event
+async def on_ready():
+    print("Le blind Test est prêt !")
+    # send list of command to discord
+    try:
+        synced = await bot.tree.sync()
+        print(f'Synced {len(synced)} command(s)')
+    except Exception as e:
+        print(e)
+    await bot.change_presence(activity=discord.Game(name="Blind Test"))
+
+@bot.tree.command(name='newmusic',description="permet d ajouter des nouveaux sons")
+@app_commands.describe(link="le lien",title="le titre", author="l auteur", playlist="la playlist dans laquele le son ira")
+async def newmusic(ctx, link:str, title:str, author:str, playlist:str):
     if link == None or len(link) == 0 :
         await ctx.send("You need to pass at least the youtube link of the music \n use : $newmusic <link> <title> <author> <playlist>")
         pass
     new_music(link, title, author, playlist)
     print(link, title, author, playlist)
-    await ctx.send(f'Music {title} created')
+    await ctx.send(f'Music {title} created', ephemeral=True)
+    #await ctx.send(f'Music {title} created')
     
-@bot.command()
-async def test(ctx, arg):
-    print("test")
+@bot.tree.command(name='test',description="yes")
+async def test(ctx, arg: Optional[str] = None):
+    print("https://media.discordapp.net/attachments/809139078687490079/1170802163568623758/fb_img_1599284128726-2748822194.jpg")
     await ctx.send(arg)
 
-@bot.command(
-    name='vuvuzela',
-    description='Plays an awful vuvuzela in the voice channel',
-    pass_context=True,
-)
+@bot.tree.command(name='vuvuzela',description="Plays an awful vuvuzela in the voice channel")
 async def vuvuzela(ctxt):
     # grab the user who sent the command
     user=ctxt.message.author
@@ -65,12 +75,10 @@ async def vuvuzela(ctxt):
         voice.stop()
     await voice.disconnect()
 
-@bot.command(
-    name='blindtest',
-    description='Launch the blindtest',
-    pass_context=True,
-)
-async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
+
+@bot.tree.command(name='blindtest',description="Launch the blindtest")
+@app_commands.describe(playlist_name="le nom de la playlist",nb_music="le nombre de musique", duration="la durée")
+async def blindtest(ctxt, playlist_name:str, nb_music:int, duration:int):
     global is_blindest_running, current_music, channel
     # grab the user who sent the command
     user=ctxt.message.author
@@ -135,24 +143,23 @@ async def fin_blindtest(ctxt):
         await ctxt.send(user.name + " : " + user_points[user])
     user_points = {}
     
-@bot.command(
-    name='see_musics',
-    description='See the musics',
-    pass_context=True,
-)
-async def see_musics(ctxt):
+@bot.tree.command(name='see_musics',description="See the musics")
+async def see_musics(ctx):
     to_send = ""
     # open the index file
     with open('index.csv', 'r') as f:
+        csv.reader(f,delimiter=';')
         for line in f:
-            to_send += line
-    await ctxt.send(to_send)
+            to_send+=line
+            print(line)
+        print(to_send)
+    await ctx.send(to_send)
+#        for line in f:
+#            to_send += line
+#    await ctxt.send(to_send)
         
-@bot.command(
-    name='see_playlists',
-    description='See the playlists',
-    pass_context=True,
-)
+
+@bot.tree.command(name='see_playlists',description="See the playlists")
 async def see_playlists(ctxt):
     to_send = ""
     send = []
@@ -165,12 +172,8 @@ async def see_playlists(ctxt):
                     send += [line.split(";")[2]]
     await ctxt.send(to_send)
 
-@bot.command(
-    name='delete_music',
-    description='Delete a music',
-    pass_context=True,
-)
-async def delete_music(ctxt, title=None, author=None):
+@bot.tree.command(name='delete_music',description="Delete a music")
+async def delete_music(ctxt, title:str, author:str):
     if title == None or author == None or len(title) == 0 or len(author) == 0:
         await ctxt.send("You need to pass the title and the author of the music to delete \n use : $delete_music <title><author>")
         return
@@ -183,16 +186,7 @@ async def delete_music(ctxt, title=None, author=None):
                 f.write(line)
     await ctxt.send(f"Music {title} deleted")    
     
-@bot.event
-async def on_ready():
-    print("Le blind Test est prêt !")
-    # send list of command to discord
-    try:
-        synced = await bot.tree.sync()
-        print(f'Synced {len(synced)} command(s)')
-    except Exception as e:
-        print(e)
-    await bot.change_presence(activity=discord.Game(name="Blind Test"))
+
     
 @bot.tree.command(name='ping',description='Retourne la latence du bot.')
 async def ping(interaction: discord.Interaction):
@@ -200,11 +194,12 @@ async def ping(interaction: discord.Interaction):
         title = f'Pong! :ping_pong:',
         description = f'latence = {round(bot.latency * 1000)}ms'
     )
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(embed=embed,ephemeral=True)
     return
 
 @bot.event
 async def on_message(message):
+    # 2 channel in parallel ? -> dictionnary ?
     global is_blindest_running, current_music, channel, user_points, user_points_correct_on_this_round
     await bot.process_commands(message)
     print(message.author, message.content, is_blindest_running)

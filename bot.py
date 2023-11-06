@@ -9,6 +9,7 @@ intents = discord.Intents.all()
 intents.message_content = True
 bot=commands.Bot(command_prefix=prefix, intents=intents)
 is_blindest_running = False
+blindtest_interrupted = False
 current_music: Music = None
 user_points = {}
 user_points_correct_on_this_round = {}
@@ -67,7 +68,10 @@ async def vuvuzela(ctxt):
     pass_context=True,
 )
 async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
-    global is_blindest_running, current_music, channel, user_points_correct_on_this_round, user_points
+    global is_blindest_running, current_music, channel, user_points_correct_on_this_round, user_points, blindtest_interrupted
+    if blindtest_interrupted:
+        blindtest_interrupted = False
+        return
     # grab the user who sent the command
     user=ctxt.message.author
     voice_channel=user.voice.channel
@@ -119,9 +123,7 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
     pass_context=True,
 )
 async def fin_blindtest(ctxt):
-    # get the user channel
-    # user=ctxt.message.author
-    # channel = user.get_channel()
+    global user_points, is_blindest_running, blindtest_interrupted
     # Disconnect the bot from voice channel
     voice = get(bot.voice_clients, guild=ctxt.guild)
     if voice and voice.is_connected():
@@ -131,8 +133,10 @@ async def fin_blindtest(ctxt):
     # show points
     await ctxt.send("Fin du blindtest !")
     for user in user_points:
-        await ctxt.send(user.name + " : " + user_points[user])
+        await ctxt.send(user.name + " : " + str(user_points[user]))
     user_points = {}
+    is_blindest_running = False
+    blindtest_interrupted = True
     
 @bot.command(
     name='see_musics',

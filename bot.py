@@ -10,6 +10,8 @@ intents.message_content = True
 bot=commands.Bot(command_prefix=prefix, intents=intents)
 is_blindest_running = False
 blindtest_interrupted = False
+is_shuffle_running = False
+shuffle_interrupted = False
 current_music: Music = None
 user_points = {}
 user_points_correct_on_this_round = {}
@@ -137,7 +139,62 @@ async def fin_blindtest(ctxt):
     user_points = {}
     is_blindest_running = False
     blindtest_interrupted = True
-    
+
+@bot.command(
+    name='shuffle',
+    description='Shuffle the musics of the playlist',
+    pass_context = True
+)
+async def shuffle(ctxt, playlist_name=None, nb_music=None):
+    global is_shuffle_running, channel, shuffle_interrupted
+    if shuffle_interrupted:
+        shuffle_interrupted = False
+        return
+    user=ctxt.message.author
+    voice_channel=user.voice.channel
+    channel = ctxt.message.channel
+    if not voice_channel:
+        await ctxt.send("You are not connected to a voice channel")
+        return
+    voice = get(bot.voice_clients, guild=ctxt.guild)
+    if voice and voice.is_connected():
+        await voice.move_to(voice_channel)
+    else:
+        voice = await voice_channel.connect()
+    is_shuffle_running = True
+    await channel.send(f"Shuffle of {nb_music if nb_music is not None else 'all'} musics {'in the playlist ' + playlist_name if playlist_name is not None else ''} will be played !")
+    #get playlist
+    if playlist_name == None:
+        discography = full_discography()
+    else:
+        discography = playlist(playlist_name)        
+    i = 0
+    l = discography.get_length()
+    while i < l:
+        if nb_music is not None and i < nb_music :
+            await channel.send("Fin du shuffle !")
+            return
+        current_music = discography.get_one_music()
+        voice.play(discord.FFmpegPCMAudio(executable='/usr/bin/ffmpeg', source=current_music.path))
+        await asyncio.sleep(current_music.length)
+        
+@bot.command(
+    name='fin_shuffle',
+    description='End the shuffle',
+    pass_context=True,
+)
+async def fin_shuffle(ctxt):
+    global is_shuffle_running, shuffle_interrupted
+    # Disconnect the bot from voice channel
+    voice = get(bot.voice_clients, guild=ctxt.guild)
+    if voice and voice.is_connected():
+        if voice.is_playing():
+            voice.stop()
+    await voice.disconnect()
+    is_shuffle_running = False
+    shuffle_interrupted = True
+        
+
 @bot.command(
     name='see_musics',
     description='See the number of added musics',

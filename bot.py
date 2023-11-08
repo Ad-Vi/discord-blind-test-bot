@@ -77,12 +77,11 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
         return
     # grab the user who sent the command
     user=ctxt.message.author
-    voice_channel=user.voice.channel
-    channel = ctxt.message.channel
-    print(('User is in channel: '+ str(channel)))
-    if not voice_channel:
+    if not user.voice :
         await ctxt.send("You are not connected to a voice channel")
         return
+    voice_channel=user.voice.channel
+    channel = ctxt.message.channel
     voice = get(bot.voice_clients, guild=ctxt.guild)
     if voice and voice.is_connected():
         await voice.move_to(voice_channel)
@@ -155,6 +154,9 @@ async def shuffle(ctxt, playlist_name=None, nb_music=None):
         shuffle_interrupted = False
         return
     user=ctxt.message.author
+    if not user.voice :
+        await ctxt.send("You are not connected to a voice channel")
+        return
     voice_channel=user.voice.channel
     channel = ctxt.message.channel
     if not voice_channel:
@@ -200,7 +202,7 @@ async def next(ctxt):
         await channel.send('No shuffle is running !')
     if voice.is_playing:
         voice.stop()
-        
+
 @bot.command(
     name='fin_shuffle',
     description='End the shuffle',

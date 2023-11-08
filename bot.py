@@ -180,7 +180,13 @@ async def shuffle(ctxt, playlist_name=None, nb_music=None):
             return
         current_music = discography.get_one_music()
         voice.play(discord.FFmpegPCMAudio(executable='/usr/bin/ffmpeg', source=current_music.path))
-        await asyncio.sleep(int(current_music.length)) or not voice.is_playing()
+        timer = 0
+        while voice.is_playing() and timer < int(current_music.length):
+            await asyncio.sleep(1)
+            timer += 1
+        if voice.is_playing():
+            voice.stop()
+        i += 1
         
 
 @bot.command(

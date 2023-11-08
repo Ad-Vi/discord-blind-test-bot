@@ -16,6 +16,7 @@ current_music: Music = None
 user_points = {}
 user_points_correct_on_this_round = {}
 channel = None
+voice = None
 # read discord token
 token = ""
 with open("token.txt", "r") as f:
@@ -76,12 +77,11 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
         return
     # grab the user who sent the command
     user=ctxt.message.author
-    voice_channel=user.voice.channel
-    channel = ctxt.message.channel
-    print(('User is in channel: '+ str(channel)))
-    if not voice_channel:
+    if not user.voice :
         await ctxt.send("You are not connected to a voice channel")
         return
+    voice_channel=user.voice.channel
+    channel = ctxt.message.channel
     voice = get(bot.voice_clients, guild=ctxt.guild)
     if voice and voice.is_connected():
         await voice.move_to(voice_channel)
@@ -146,11 +146,17 @@ async def fin_blindtest(ctxt):
     pass_context = True
 )
 async def shuffle(ctxt, playlist_name=None, nb_music=None):
-    global is_shuffle_running, channel, shuffle_interrupted
+    global is_shuffle_running, channel, shuffle_interrupted, channel, voice
+    nb_music_is_None = (nb_music is None)
+    if not nb_music_is_None:
+        nb_music = int(nb_music)
     if shuffle_interrupted:
         shuffle_interrupted = False
         return
     user=ctxt.message.author
+    if not user.voice :
+        await ctxt.send("You are not connected to a voice channel")
+        return
     voice_channel=user.voice.channel
     channel = ctxt.message.channel
     if not voice_channel:
@@ -162,7 +168,7 @@ async def shuffle(ctxt, playlist_name=None, nb_music=None):
     else:
         voice = await voice_channel.connect()
     is_shuffle_running = True
-    await channel.send(f"Shuffle of {nb_music if nb_music is not None else 'all'} musics {'in the playlist ' + playlist_name if playlist_name is not None else ''} will be played !")
+    await channel.send(f"Shuffle of {nb_music if not nb_music_is_None else 'all'} musics {'in the playlist ' + playlist_name if playlist_name is not None else ''} will be played !")
     #get playlist
     if playlist_name == None:
         discography = full_discography()
@@ -171,20 +177,39 @@ async def shuffle(ctxt, playlist_name=None, nb_music=None):
     i = 0
     l = discography.get_length()
     while i < l:
-        if nb_music is not None and i < nb_music :
-            await channel.send("Fin du shuffle !")
+        if not nb_music_is_None and i >= nb_music :
+            await channel.send(f"Fin du shuffle !{nb_music}{i}")
             return
         current_music = discography.get_one_music()
         voice.play(discord.FFmpegPCMAudio(executable='/usr/bin/ffmpeg', source=current_music.path))
-        await asyncio.sleep(current_music.length)
+        timer = 0
+        while voice.is_playing() and timer < int(current_music.length):
+            await asyncio.sleep(1)
+            timer += 1
+        if voice.is_playing():
+            voice.stop()
+        i += 1
         
+
+@bot.command(
+    name='next',
+    description='Run the next music in the shuffle',
+    pass_context=True,
+)
+async def next(ctxt):
+    global is_shuffle_running, channel, voice
+    if not is_shuffle_running:
+        await channel.send('No shuffle is running !')
+    if voice.is_playing:
+        voice.stop()
+
 @bot.command(
     name='fin_shuffle',
     description='End the shuffle',
     pass_context=True,
 )
 async def fin_shuffle(ctxt):
-    global is_shuffle_running, shuffle_interrupted
+    global is_shuffle_running, shuffle_interrupted, channel
     # Disconnect the bot from voice channel
     voice = get(bot.voice_clients, guild=ctxt.guild)
     if voice and voice.is_connected():
@@ -193,7 +218,7 @@ async def fin_shuffle(ctxt):
     await voice.disconnect()
     is_shuffle_running = False
     shuffle_interrupted = True
-        
+
 
 @bot.command(
     name='see_musics',

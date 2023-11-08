@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord.utils import get
 import asyncio
+import math
 from music_acquisition import Music, new_music, playlist, full_discography
 
 prefix= "$"
@@ -21,6 +22,30 @@ voice = None
 token = ""
 with open("token.txt", "r") as f:
     token = f.read()
+    
+def tfidf(str, word):
+    c = str.count(word)
+    tf = c / len(str.split())
+    idf = math.log(len(str.split(" ")) / c)
+    return tf * idf
+def normalize_tfidf(str):
+    words = str.split()
+    tfidf_sum = sum(tfidf(str, word) for word in words)
+    normalized_tfidf = [tfidf(str, word) / tfidf_sum for word in words]
+    return normalized_tfidf
+def normalized_tdidf(str, word):
+    return normalize_tfidf(str)[str.split().index(word)]
+def compute_score(str1, str2):
+    str1 = str1.lower()
+    str2 = str2.lower()
+    
+    words1 = str1.split()
+    words2 = str2.split()
+    count = 0
+    for word in words1:
+        if word in words2:
+            count += normalized_tdidf(str1, word)
+    return count
 
 @bot.command()
 async def newmusic(ctx, link=None, title=None, author=None, playlist=None):
@@ -285,34 +310,67 @@ async def on_message(message):
         author = current_music.author
         print(title, author)
         print(message.author, message.content, (message.content == title), (message.content == author))
+        score_author = compute_score(message.content.lower(), author.lower())
+        score_title = compute_score(message.content.lower(), title.lower())
         if message.content.lower() == title.lower():
-            if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][0] ==  True:
+            if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][0] ==  1:
                 await message.channel.send("Tu avais déjà trouvé le titre !")
                 return
             await message.channel.send("Bravo ! Tu as trouvé le titre !")
             if message.author in user_points_correct_on_this_round:
-                user_points_correct_on_this_round[message.author][0] = True
+                user_points_correct_on_this_round[message.author][0] = 1
             else:
-                user_points_correct_on_this_round[message.author] = [True, False]
+                user_points_correct_on_this_round[message.author] = [1, 0]
             # add points to the user
             if message.author in user_points:
                 user_points[message.author] += 1
             else:
                 user_points[message.author] = 1
+        elif score_title > 0.25:
+            if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][0] >=  score_title:
+                await message.channel.send("Tu avais déjà trouvé un meileur titre !")
+                return
+            await message.channel.send(f'Tu as trouvé le titre avec une ressemblance de {score_title} %!')
+            if message.author in user_points_correct_on_this_round:
+                diff = score_title - user_points_correct_on_this_round[message.author][0]
+                user_points_correct_on_this_round[message.author][0] = score_title
+            else:
+                user_points_correct_on_this_round[message.author] = [score_title, 0]
+            # add points to the user
+            if message.author in user_points:
+                user_points[message.author] += diff
+            else:
+                user_points[message.author] = score_title            
         elif message.content.lower() == author.lower():
-            if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][1] ==  True:
+            if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][1] ==  1:
                 await message.channel.send("Tu avais déjà trouvé l'artiste !")
                 return
             await message.channel.send("Bravo ! Tu as trouvé l'artiste !")
             if message.author in user_points_correct_on_this_round:
-                user_points_correct_on_this_round[message.author][1] = True
+                user_points_correct_on_this_round[message.author][1] = 1
             else:
-                user_points_correct_on_this_round[message.author] = [False, True]
+                user_points_correct_on_this_round[message.author] = [0, 1]
             # add points to the user
             if message.author in user_points:
                 user_points[message.author] += 1
             else:
                 user_points[message.author] = 1
+        elif score_author > 0.25:
+            if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][1] >=  score_author:
+                await message.channel.send("Tu avais déjà trouvé un meileur auteur !")
+                return
+            await message.channel.send(f'Tu as trouvé l auteur avec une ressemblance de {score_author} %!')
+            if message.author in user_points_correct_on_this_round:
+                diff = score_author - user_points_correct_on_this_round[message.author][1]
+                user_points_correct_on_this_round[message.author][1] = score_author
+            else:
+                user_points_correct_on_this_round[message.author] = [0, score_author]
+            # add points to the user
+            if message.author in user_points:
+                user_points[message.author] += diff
+            else:
+                user_points[message.author] = score_author       
+            
         else:
             await message.channel.send("Raté !")
     if message.content == "Ping":

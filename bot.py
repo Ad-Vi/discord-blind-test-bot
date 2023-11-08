@@ -310,22 +310,22 @@ async def on_message(message):
         author = current_music.author
         print(title, author)
         print(message.author, message.content, (message.content == title), (message.content == author))
-        score_author = compute_score(message.content.lower(), author.lower())
-        score_title = compute_score(message.content.lower(), title.lower())
+        score_author = compute_score(author.lower(), message.content.lower())
+        score_title = compute_score(title.lower(), message.content.lower())
         if message.content.lower() == title.lower():
-            if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][0] ==  1:
+            if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][0] == 1.0:
                 await message.channel.send("Tu avais déjà trouvé le titre !")
                 return
             await message.channel.send("Bravo ! Tu as trouvé le titre !")
             if message.author in user_points_correct_on_this_round:
-                user_points_correct_on_this_round[message.author][0] = 1
+                user_points_correct_on_this_round[message.author][0] = 1.0
             else:
                 user_points_correct_on_this_round[message.author] = [1, 0]
             # add points to the user
             if message.author in user_points:
-                user_points[message.author] += 1
+                user_points[message.author] += 1.0
             else:
-                user_points[message.author] = 1
+                user_points[message.author] = 1.0
         elif score_title > 0.25:
             if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][0] >=  score_title:
                 await message.channel.send("Tu avais déjà trouvé un meileur titre !")
@@ -342,19 +342,19 @@ async def on_message(message):
             else:
                 user_points[message.author] = score_title            
         elif message.content.lower() == author.lower():
-            if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][1] ==  1:
+            if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][1] == 1.0:
                 await message.channel.send("Tu avais déjà trouvé l'artiste !")
                 return
             await message.channel.send("Bravo ! Tu as trouvé l'artiste !")
             if message.author in user_points_correct_on_this_round:
-                user_points_correct_on_this_round[message.author][1] = 1
+                user_points_correct_on_this_round[message.author][1] = 1.0
             else:
                 user_points_correct_on_this_round[message.author] = [0, 1]
             # add points to the user
             if message.author in user_points:
-                user_points[message.author] += 1
+                user_points[message.author] += 1.0
             else:
-                user_points[message.author] = 1
+                user_points[message.author] = 1.0
         elif score_author > 0.25:
             if message.author in user_points_correct_on_this_round and user_points_correct_on_this_round[message.author][1] >=  score_author:
                 await message.channel.send("Tu avais déjà trouvé un meileur auteur !")

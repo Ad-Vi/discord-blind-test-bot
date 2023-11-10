@@ -96,6 +96,7 @@ async def vuvuzela(ctxt):
     pass_context=True,
 )
 async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
+    await bot.change_presence(activity=discord.Game(name="Blind Test"))
     global is_blindest_running, current_music, channel, user_points_correct_on_this_round, user_points, blindtest_interrupted
     if blindtest_interrupted:
         blindtest_interrupted = False
@@ -106,7 +107,13 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
         await ctxt.send("You are not connected to a voice channel")
         return
     voice_channel=user.voice.channel
+    if voice_channel.name != "blindtest":
+        await ctxt.send("You need to join the voice 'blindtest' channel to play the blindtest !")
+        return
     channel = ctxt.message.channel
+    if channel.name != "blindtest":
+        await ctxt.send("You need to join the 'blindtest' channel to play the blindtest !")
+        return
     voice = get(bot.voice_clients, guild=ctxt.guild)
     if voice and voice.is_connected():
         await voice.move_to(voice_channel)
@@ -135,7 +142,8 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
         i += 1
         user_points_correct_on_this_round = {}
         await channel.send(f"It was {current_music.title} by {current_music.author}. Music {i} out of {nb_music}")
-        await asyncio.sleep(10)
+        if i < nb_music -1 and i < l-1:
+            await asyncio.sleep(10)
     is_blindest_running = False
     await voice.disconnect()
     # show points
@@ -143,6 +151,8 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
     for user in user_points:
         await ctxt.send(str(user.name) + " : " + str(user_points[user]))
     user_points = {}
+    # Move the presence of the bot
+    await bot.change_presence(activity=None)
 
 @bot.command(
     name='fin_blindtest',
@@ -150,7 +160,7 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
     pass_context=True,
 )
 async def fin_blindtest(ctxt):
-    global user_points, is_blindest_running, blindtest_interrupted
+    global user_points, is_blindest_running, blindtest_interrupted, channel
     # Disconnect the bot from voice channel
     voice = get(bot.voice_clients, guild=ctxt.guild)
     if voice and voice.is_connected():
@@ -158,12 +168,13 @@ async def fin_blindtest(ctxt):
             voice.stop()
     await voice.disconnect()
     # show points
-    await ctxt.send("Fin du blindtest !")
+    await channel.send("Fin du blindtest !")
     for user in user_points:
-        await ctxt.send(user.name + " : " + str(user_points[user]))
+        await channel.send(user.name + " : " + str(user_points[user]))
     user_points = {}
     is_blindest_running = False
     blindtest_interrupted = True
+    await bot.change_presence(activity=None)
 
 @bot.command(
     name='shuffle',
@@ -171,6 +182,7 @@ async def fin_blindtest(ctxt):
     pass_context = True
 )
 async def shuffle(ctxt, playlist_name=None, nb_music=None):
+    await bot.change_presence(activity=discord.Game(name="Shuffle"))
     global is_shuffle_running, channel, shuffle_interrupted, channel, voice
     nb_music_is_None = (nb_music is None)
     if not nb_music_is_None:
@@ -214,6 +226,7 @@ async def shuffle(ctxt, playlist_name=None, nb_music=None):
         if voice.is_playing():
             voice.stop()
         i += 1
+    await bot.change_presence(activity=None)
         
 
 @bot.command(
@@ -243,6 +256,7 @@ async def fin_shuffle(ctxt):
     await voice.disconnect()
     is_shuffle_running = False
     shuffle_interrupted = True
+    await bot.change_presence(activity=None)
 
 
 @bot.command(
@@ -291,27 +305,59 @@ async def delete_music(ctxt, title=None, author=None):
             if line.split(";")[0] != title and line.split(";")[1] != author:
                 f.write(line)
     await ctxt.send(f"Music {title} deleted")    
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    target_channel_name = "blindtest"
+    if member.bot:  # Bot joined or left a voice channel
+        print("Bot joined or left a voice channel")
+        return
+    if after.channel:  # User joined a voice channel
+        if after.channel.name != target_channel_name:
+            await member.channel.send("You need to join the 'blindtest' channel to play the blindtest !")
+            print("Not in the correct channel")
+            return
+        
+        guild = member.guild
+        blindtest_channel = discord.utils.get(guild.text_channels, name="blindtest")
+
+        if blindtest_channel is None:
+            # Send a message if the 'blindtest' channel doesn't exist
+            print("The 'blindtest' channel doesn't exist")
+            return
     
+        thread = await blindtest_channel.create_thread(name=f"{member.display_name}-blindtest", type=discord.ChannelType.private_thread)
+        
+        # Notify the user about the new thread
+        await thread.send(f"Welcome to your private voice thread for the blindtest, {member.mention}!")
+    elif before.channel:  # User left a voice channel
+        if before.channel.name != target_channel_name:
+            await member.channel.send("You need to join the 'blindtest' channel to play the blindtest !")
+            print("Not in the correct channel")
+            return
+        thread = discord.utils.get(member.guild.threads, name=f"{member.display_name}-blindtest")
+        await thread.delete()
+        
 @bot.event
 async def on_ready():
     print("Le blind Test est prêt !")
-    await bot.change_presence(activity=discord.Game(name="Blind Test"))
     
 
 @bot.event
 async def on_message(message):
     global is_blindest_running, current_music, channel, user_points, user_points_correct_on_this_round
     await bot.process_commands(message)
-    print(message.author, message.content, is_blindest_running)
+    print(message.author, message.channel, message.content, is_blindest_running)
     if message.author == bot.user:
         return
-    if message.channel != channel:
+    if message.channel != channel and message.channel.name != f"{message.author.display_name}-blindtest":
+        print("message.channel != channel :", message.channel != channel, message.channel ,  channel)
+        print("message.channel.name != f{message.author.display_name}-blindtest", message.channel.name != f"{message.author.display_name}-blindtest", message.channel, f"{message.author.display_name}-blindtest")
         return
     if is_blindest_running:
         title = current_music.title
         author = current_music.author
         print(title, author)
-        print(message.author, message.content, (message.content == title), (message.content == author))
         score_author = compute_score(author.lower(), message.content.lower())
         score_title = compute_score(title.lower(), message.content.lower())
         if message.content.lower() == title.lower():
@@ -372,7 +418,6 @@ async def on_message(message):
                 user_points[message.author] += diff
             else:
                 user_points[message.author] = score_author       
-            
         else:
             await message.channel.send("Raté !")
     if message.content == "Ping":

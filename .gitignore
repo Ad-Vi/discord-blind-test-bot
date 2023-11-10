@@ -3,4 +3,5 @@ youtubestreamer.py
 audios/
 __pycache__/
 token.txt
+token_prod.txt
 test.ipynb

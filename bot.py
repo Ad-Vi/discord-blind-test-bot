@@ -5,7 +5,7 @@ import asyncio
 import math
 from music_acquisition import Music, new_music, playlist, full_discography
 
-prefix= "$"
+prefix= "%"
 intents = discord.Intents.all() 
 intents.message_content = True
 bot=commands.Bot(command_prefix=prefix, intents=intents)
@@ -317,6 +317,9 @@ async def on_voice_state_update(member, before, after):
             await member.channel.send("You need to join the 'blindtest' channel to play the blindtest !")
             print("Not in the correct channel")
             return
+        # discard all channel change that are not join a channel
+        if before.channel == after.channel:
+            return
         
         guild = member.guild
         blindtest_channel = discord.utils.get(guild.text_channels, name="blindtest")
@@ -334,6 +337,9 @@ async def on_voice_state_update(member, before, after):
         if before.channel.name != target_channel_name:
             await member.channel.send("You need to join the 'blindtest' channel to play the blindtest !")
             print("Not in the correct channel")
+            return
+        # discard all channel change that are not join a channel
+        if before.channel == after.channel:
             return
         thread = discord.utils.get(member.guild.threads, name=f"{member.display_name}-blindtest")
         await thread.delete()

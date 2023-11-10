@@ -5,7 +5,7 @@ import asyncio
 import math
 from music_acquisition import Music, new_music, playlist, full_discography
 
-prefix= "%"
+prefix= "$"
 intents = discord.Intents.all() 
 intents.message_content = True
 bot=commands.Bot(command_prefix=prefix, intents=intents)

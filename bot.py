@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord.utils import get
 import asyncio
 import math
-from music_acquisition import Music, new_music, playlist, full_discography
+from music_acquisition import *
 
 prefix= "$"
 intents = discord.Intents.all() 
@@ -18,6 +18,7 @@ user_points = {}
 user_points_correct_on_this_round = {}
 channel = None
 voice = None
+waiting_for_answer = False
 # read discord token
 token = ""
 with open("token.txt", "r") as f:
@@ -57,6 +58,45 @@ async def newmusic(ctx, link=None, title=None, author=None, playlist=None):
     await ctx.send(f'Music {title} created')
     
 @bot.command()
+async def import_musics_from_yt_playlist(ctx, link=None):
+    global waiting_for_answer
+    await ctx.send("yeee")
+    if link == None or len(link) == 0 :
+        await ctx.send("You need to pass at least the youtube link of the playlist \n use : $import_musics_from_yt_playlist <link>")
+        pass
+    ytp = new_musics_from_yt_playlist(link)
+    ytpl = ytp.get_number_videos()
+    for i in range(ytpl):
+        title, author, playlist, url, length = ytp.get_music_info(i)
+        to_continue = False
+        while True:
+            await ctx.send("Music info - title, author, playlist : " + title + ", " + author + ", " + playlist + ".\n Enter new info - as <title>, <author>, <playlist> - or type 'no' to keep the old one")
+            waiting_for_answer = True
+            answer = await bot.wait_for('message')
+            waiting_for_answer = False
+            print(answer.content)
+            if answer.content == "no":
+                to_continue = True
+                print("no change")
+                break
+            elif len(answer.content.split(", ")) == 2:
+                title, author = answer.content.split(", ")
+                break
+            elif len(answer.content.split(", ")) != 3:
+                await ctx.send("You need to pass the title, the author and the playlist separated by a comma and a space, type no if you don't want to change the info")
+                continue
+            title, author, playlist = answer.content.split(", ")
+            break
+        if to_continue:
+            continue        
+        
+        ytp.modify_music_info(i, title, author, playlist)
+    await ctx.send(f'{ytpl} musics will be imported from the playlist {ytp.get_name()}')
+    ytp.add_to_files()
+    await ctx.send(f'{ytpl} musics imported from the playlist {ytp.get_name()}')
+    
+        
+@bot.command()
 async def test(ctx, arg):
     print("test")
     await ctx.send(arg)
@@ -66,9 +106,9 @@ async def test(ctx, arg):
     description='Plays an awful vuvuzela in the voice channel',
     pass_context=True,
 )
-async def vuvuzela(ctxt):
+async def vuvuzela(ctx):
     # grab the user who sent the command
-    user=ctxt.message.author
+    user=ctx.message.author
     voice_channel=user.voice.channel
     channel=None
     # only play music if user is in a voice channel
@@ -76,9 +116,9 @@ async def vuvuzela(ctxt):
     channel=voice_channel
     print(('User is in channel: '+ str(channel)))
     if not channel:
-        await ctxt.send("You are not connected to a voice channel")
+        await ctx.send("You are not connected to a voice channel")
         return
-    voice = get(bot.voice_clients, guild=ctxt.guild)
+    voice = get(bot.voice_clients, guild=ctx.guild)
     if voice and voice.is_connected():
         await voice.move_to(channel)
     else:
@@ -95,26 +135,26 @@ async def vuvuzela(ctxt):
     description='Launch the blindtest',
     pass_context=True,
 )
-async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
-    await bot.change_presence(activity=discord.Game(name="Blind Test"))
+async def blindtest(ctx, playlist_name=None, nb_music=10, duration=20):
     global is_blindest_running, current_music, channel, user_points_correct_on_this_round, user_points, blindtest_interrupted
+    await bot.change_presence(activity=discord.Game(name="Blind Test"))
     if blindtest_interrupted:
         blindtest_interrupted = False
         return
     # grab the user who sent the command
-    user=ctxt.message.author
+    user=ctx.message.author
     if not user.voice :
-        await ctxt.send("You are not connected to a voice channel")
+        await ctx.send("You are not connected to a voice channel")
         return
     voice_channel=user.voice.channel
     if voice_channel.name != "blindtest":
-        await ctxt.send("You need to join the voice 'blindtest' channel to play the blindtest !")
+        await ctx.send("You need to join the voice 'blindtest' channel to play the blindtest !")
         return
-    channel = ctxt.message.channel
+    channel = ctx.message.channel
     if channel.name != "blindtest":
-        await ctxt.send("You need to join the 'blindtest' channel to play the blindtest !")
+        await ctx.send("You need to join the 'blindtest' channel to play the blindtest !")
         return
-    voice = get(bot.voice_clients, guild=ctxt.guild)
+    voice = get(bot.voice_clients, guild=ctx.guild)
     if voice and voice.is_connected():
         await voice.move_to(voice_channel)
     else:
@@ -147,9 +187,9 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
     is_blindest_running = False
     await voice.disconnect()
     # show points
-    await ctxt.send("Fin du blindtest !")
+    await ctx.send("Fin du blindtest !")
     for user in user_points:
-        await ctxt.send(str(user.name) + " : " + str(user_points[user]))
+        await ctx.send(str(user.name) + " : " + str(user_points[user]))
     user_points = {}
     # Move the presence of the bot
     await bot.change_presence(activity=None)
@@ -159,10 +199,10 @@ async def blindtest(ctxt, playlist_name=None, nb_music=10, duration=20):
     description='End the blindtest',
     pass_context=True,
 )
-async def fin_blindtest(ctxt):
+async def fin_blindtest(ctx):
     global user_points, is_blindest_running, blindtest_interrupted, channel
     # Disconnect the bot from voice channel
-    voice = get(bot.voice_clients, guild=ctxt.guild)
+    voice = get(bot.voice_clients, guild=ctx.guild)
     if voice and voice.is_connected():
         if voice.is_playing():
             voice.stop()
@@ -181,8 +221,8 @@ async def fin_blindtest(ctxt):
     description='Shuffle the musics of the playlist',
     pass_context = True
 )
-async def shuffle(ctxt, playlist_name=None, nb_music=None):
-    await bot.change_presence(activity=discord.Game(name="Shuffle"))
+async def shuffle(ctx, playlist_name=None, nb_music=None):
+    await bot.change_presence(activity=discord.Game(name="Ecouter de la musique {playlist_name}}"))
     global is_shuffle_running, channel, shuffle_interrupted, channel, voice
     nb_music_is_None = (nb_music is None)
     if not nb_music_is_None:
@@ -190,16 +230,16 @@ async def shuffle(ctxt, playlist_name=None, nb_music=None):
     if shuffle_interrupted:
         shuffle_interrupted = False
         return
-    user=ctxt.message.author
+    user=ctx.message.author
     if not user.voice :
-        await ctxt.send("You are not connected to a voice channel")
+        await ctx.send("You are not connected to a voice channel")
         return
     voice_channel=user.voice.channel
-    channel = ctxt.message.channel
+    channel = ctx.message.channel
     if not voice_channel:
-        await ctxt.send("You are not connected to a voice channel")
+        await ctx.send("You are not connected to a voice channel")
         return
-    voice = get(bot.voice_clients, guild=ctxt.guild)
+    voice = get(bot.voice_clients, guild=ctx.guild)
     if voice and voice.is_connected():
         await voice.move_to(voice_channel)
     else:
@@ -234,7 +274,7 @@ async def shuffle(ctxt, playlist_name=None, nb_music=None):
     description='Run the next music in the shuffle',
     pass_context=True,
 )
-async def next(ctxt):
+async def next(ctx):
     global is_shuffle_running, channel, voice
     if not is_shuffle_running:
         await channel.send('No shuffle is running !')
@@ -246,10 +286,10 @@ async def next(ctxt):
     description='End the shuffle',
     pass_context=True,
 )
-async def fin_shuffle(ctxt):
+async def fin_shuffle(ctx):
     global is_shuffle_running, shuffle_interrupted, channel
     # Disconnect the bot from voice channel
-    voice = get(bot.voice_clients, guild=ctxt.guild)
+    voice = get(bot.voice_clients, guild=ctx.guild)
     if voice and voice.is_connected():
         if voice.is_playing():
             voice.stop()
@@ -264,19 +304,19 @@ async def fin_shuffle(ctxt):
     description='See the number of added musics',
     pass_context=True,
 )
-async def see_musics(ctxt):
+async def see_musics(ctx):
     to_send = 0
     # open the index file
     with open('index.csv', 'r') as f:
         for line in f:
             to_send += 1
-    await ctxt.send("Nombre de musiques ajoutées à la DB du bot :"+ str(to_send))
+    await ctx.send("Nombre de musiques ajoutées à la DB du bot :"+ str(to_send))
 @bot.command(
     name='see_playlists',
     description='See the playlists',
     pass_context=True,
 )
-async def see_playlists(ctxt):
+async def see_playlists(ctx):
     to_send = ""
     send = []
     # open the index file
@@ -286,16 +326,16 @@ async def see_playlists(ctxt):
                 if line.split(";")[2] not in send:
                     to_send += line.split(";")[2] + "\n"
                     send += [line.split(";")[2]]
-    await ctxt.send(to_send)
+    await ctx.send(to_send)
 
 @bot.command(
     name='delete_music',
     description='Delete a music',
     pass_context=True,
 )
-async def delete_music(ctxt, title=None, author=None):
+async def delete_music(ctx, title=None, author=None):
     if title == None or author == None or len(title) == 0 or len(author) == 0:
-        await ctxt.send("You need to pass the title and the author of the music to delete \n use : $delete_music <title><author>")
+        await ctx.send("You need to pass the title and the author of the music to delete \n use : $delete_music <title><author>")
         return
     # open the index file
     with open('index.csv', 'r') as f:
@@ -304,7 +344,7 @@ async def delete_music(ctxt, title=None, author=None):
         for line in lines:
             if line.split(";")[0] != title and line.split(";")[1] != author:
                 f.write(line)
-    await ctxt.send(f"Music {title} deleted")    
+    await ctx.send(f"Music {title} deleted")    
 
 @bot.event
 async def on_voice_state_update(member, before, after):
@@ -347,14 +387,16 @@ async def on_voice_state_update(member, before, after):
 @bot.event
 async def on_ready():
     print("Le blind Test est prêt !")
-    
+    await bot.change_presence(activity=None)
 
 @bot.event
 async def on_message(message):
-    global is_blindest_running, current_music, channel, user_points, user_points_correct_on_this_round
+    global is_blindest_running, current_music, channel, user_points, user_points_correct_on_this_round, waiting_for_answer
     await bot.process_commands(message)
-    print(message.author, message.channel, message.content, is_blindest_running)
+    # print(message.author, message.channel, message.content, is_blindest_running)
     if message.author == bot.user:
+        return
+    if waiting_for_answer:
         return
     if message.channel != channel and message.channel.name != f"{message.author.display_name}-blindtest":
         print("message.channel != channel :", message.channel != channel, message.channel ,  channel)
@@ -428,6 +470,6 @@ async def on_message(message):
             await message.channel.send("Raté !")
     if message.content == "Ping":
         await message.channel.send("Pong")
-    print(message.content)
+    # print(message.content)
 
 bot.run(token)

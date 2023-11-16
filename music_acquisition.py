@@ -1,5 +1,6 @@
 from typing import NamedTuple
-from pytube import YouTube
+from pytube import YouTube, Playlist
+from pytube.exceptions import PytubeError
 import os
 import random
 
@@ -41,11 +42,48 @@ class new_music:
         audio = self.yt.streams.get_audio_only()
         audio.download('./audios')
         # rename the file
-        os.rename("./audios/"+self.yt.title+".mp4", "./audios/"+self.title+".mp4")
+        os.rename("./audios/"+remove_weird_char(self.yt.title)+".mp4", "./audios/"+self.title+".mp4")
         
         with open('index.csv', 'a') as f:
             f.write("\n"+self.title+";"+self.author+";"+self.playlist+";"+self.url+";"+"./audios/"+self.title+".mp4"+";"+str(self.length))
+
+class new_musics_from_yt_playlist:
+    def __init__(self, link):
+        p = Playlist(link)
+        self.p = p
+        self.playlist = []
+        for video in p.videos:
+            self.playlist.append((video.title, video.author, "None", video.watch_url, video.length))
+        print("Nombre de vidéos dans la playlist: ", len(p.video_urls))
+    
+    def get_number_videos(self):
+        return len(self.playlist)
+    
+    def get_name(self):
+        return self.p.title
+    
+    def get_music_info(self, index):
+        return self.playlist[index]
+    
+    def modify_music_info(self, index, title, author, playlist):
+        self.playlist[index] = (title, author, playlist, self.playlist[index][3], self.playlist[index][4])
         
+    def add_to_files(self):
+        for video in self.playlist:
+            self._add_one_to_files(video)
+
+    def _add_one_to_files(self, video):
+        # Get only the audio
+        title, author, playlist, watch_url,length = video
+        yt = YouTube(watch_url)
+        audio = yt.streams.get_audio_only()
+        audio.download('./audios')
+        # rename the file
+        os.rename("./audios/"+remove_weird_char(yt.title)+".mp4", "./audios/"+title+".mp4")
+        
+        with open('index.csv', 'a') as f:
+            f.write("\n"+title+";"+author+";"+str(playlist)+";"+watch_url+";"+"./audios/"+title+".mp4"+";"+str(length))
+
 class playlist:
     def __init__(self, name):
         print("-- new playlist", name)
@@ -79,4 +117,9 @@ class full_discography:
     def get_length(self):
         return len(self.musics)
         
-       
+        
+def remove_weird_char(string):
+    # remove the char
+    string = string.replace("'", "")
+    string = string.replace(",", "")
+    return string

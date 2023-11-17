@@ -24,24 +24,33 @@ token = ""
 with open("token.txt", "r") as f:
     token = f.read()
     
-def tfidf(str, word):
-    c = str.count(word)
-    tf = c / len(str.split())
-    idf = math.log(len(str.split(" ")) / c)
+def tfidf(string, word):
+    c = string.count(word)
+    tf = c / len(string.split())
+    idf = math.log(len(string.split(" ")) / c)
     return tf * idf
-def normalize_tfidf(str):
-    words = str.split()
-    tfidf_sum = sum(tfidf(str, word) for word in words)
-    normalized_tfidf = [tfidf(str, word) / tfidf_sum for word in words]
+def normalize_tfidf(string):
+    words = string.split()
+    tfidf_sum = sum(tfidf(string, word) for word in words)
+    normalized_tfidf = [tfidf(string, word) / tfidf_sum for word in words]
     return normalized_tfidf
-def normalized_tdidf(str, word):
-    return normalize_tfidf(str)[str.split().index(word)]
+def normalized_tdidf(string, word):
+    return normalize_tfidf(string)[string.split().index(word)]
 def compute_score(str1, str2):
     str1 = str1.lower()
     str2 = str2.lower()
     
     words1 = str1.split()
     words2 = str2.split()
+    if len(words1) == 1:
+        w1 = words1[0]
+        for w2 in words2:
+            if w1 == w2:
+                return 1/len(words2)
+    if len(words1) > len(words2):
+        tmp = words1
+        words1 = words2
+        words2 = tmp
     count = 0
     for word in words1:
         if word in words2:
@@ -60,7 +69,6 @@ async def newmusic(ctx, link=None, title=None, author=None, playlist=None):
 @bot.command()
 async def import_musics_from_yt_playlist(ctx, link=None):
     global waiting_for_answer
-    await ctx.send("yeee")
     if link == None or len(link) == 0 :
         await ctx.send("You need to pass at least the youtube link of the playlist \n use : $import_musics_from_yt_playlist <link>")
         pass

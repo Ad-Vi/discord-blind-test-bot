@@ -24,6 +24,8 @@ channel_name = "blindtest"
 token = ""
 with open("token.txt", "r") as f:
     token = f.read()
+# create index if it doesn't exist
+create_index()
 
 @bot.command()
 async def newmusic(ctx, link=None, title=None, author=None, playlist=None):

@@ -1,4 +1,15 @@
 import math
+import os
+import csv
+
+def create_index():
+    file_path = 'index.csv'
+
+    # Check if the file already exists
+    if not os.path.exists(file_path):
+        # Create the file if it does not exist
+        with open(file_path, 'w', newline='') as file:
+            writer = csv.writer(file)
 
 def tfidf(string, word):
     c = string.count(word)

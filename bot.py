@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands
 from discord.utils import get
 import asyncio
-import math
 from music_acquisition import *
+from utils import *
 
 prefix= "$"
 intents = discord.Intents.all() 
@@ -19,43 +19,11 @@ user_points_correct_on_this_round = {}
 channel = None
 voice = None
 waiting_for_answer = False
+channel_name = "blindtest"
 # read discord token
 token = ""
 with open("token.txt", "r") as f:
     token = f.read()
-    
-def tfidf(string, word):
-    c = string.count(word)
-    tf = c / len(string.split())
-    idf = math.log(len(string.split(" ")) / c)
-    return tf * idf
-def normalize_tfidf(string):
-    words = string.split()
-    tfidf_sum = sum(tfidf(string, word) for word in words)
-    normalized_tfidf = [tfidf(string, word) / tfidf_sum for word in words]
-    return normalized_tfidf
-def normalized_tdidf(string, word):
-    return normalize_tfidf(string)[string.split().index(word)]
-def compute_score(str1, str2):
-    str1 = str1.lower()
-    str2 = str2.lower()
-    
-    words1 = str1.split()
-    words2 = str2.split()
-    if len(words1) == 1:
-        w1 = words1[0]
-        for w2 in words2:
-            if w1 == w2:
-                return 1/len(words2)
-    if len(words1) > len(words2):
-        tmp = words1
-        words1 = words2
-        words2 = tmp
-    count = 0
-    for word in words1:
-        if word in words2:
-            count += normalized_tdidf(str1, word)
-    return count
 
 @bot.command()
 async def newmusic(ctx, link=None, title=None, author=None, playlist=None):
@@ -155,12 +123,12 @@ async def blindtest(ctx, playlist_name=None, nb_music=10, duration=20):
         await ctx.send("You are not connected to a voice channel")
         return
     voice_channel=user.voice.channel
-    if voice_channel.name != "blindtest":
-        await ctx.send("You need to join the voice 'blindtest' channel to play the blindtest !")
+    if voice_channel.name != channel_name:
+        await ctx.send(f"You need to join the voice {channel_name} channel to play the blindtest !")
         return
     channel = ctx.message.channel
-    if channel.name != "blindtest":
-        await ctx.send("You need to join the 'blindtest' channel to play the blindtest !")
+    if channel.name != channel_name:
+        await ctx.send(f"You need to join the {channel_name} channel to play the blindtest !")
         return
     voice = get(bot.voice_clients, guild=ctx.guild)
     if voice and voice.is_connected():
@@ -356,13 +324,13 @@ async def delete_music(ctx, title=None, author=None):
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    target_channel_name = "blindtest"
+    target_channel_name = channel_name
     if member.bot:  # Bot joined or left a voice channel
         print("Bot joined or left a voice channel")
         return
     if after.channel:  # User joined a voice channel
         if after.channel.name != target_channel_name:
-            await member.channel.send("You need to join the 'blindtest' channel to play the blindtest !")
+            await member.channel.send(f"You need to join the {channel_name} channel to play the blindtest !")
             print("Not in the correct channel")
             return
         # discard all channel change that are not join a channel
@@ -370,26 +338,26 @@ async def on_voice_state_update(member, before, after):
             return
         
         guild = member.guild
-        blindtest_channel = discord.utils.get(guild.text_channels, name="blindtest")
+        blindtest_channel = discord.utils.get(guild.text_channels, name=channel_name)
 
         if blindtest_channel is None:
-            # Send a message if the 'blindtest' channel doesn't exist
-            print("The 'blindtest' channel doesn't exist")
+            # Send a message if the channel_name channel doesn't exist
+            print(f"The {channel_name} channel doesn't exist")
             return
     
-        thread = await blindtest_channel.create_thread(name=f"{member.display_name}-blindtest", type=discord.ChannelType.private_thread)
+        thread = await blindtest_channel.create_thread(name=f"{member.display_name}-{channel_name}", type=discord.ChannelType.private_thread)
         
         # Notify the user about the new thread
         await thread.send(f"Welcome to your private voice thread for the blindtest, {member.mention}!")
     elif before.channel:  # User left a voice channel
         if before.channel.name != target_channel_name:
-            await member.channel.send("You need to join the 'blindtest' channel to play the blindtest !")
+            await member.channel.send(f"You need to join the {channel_name} channel to play the blindtest !")
             print("Not in the correct channel")
             return
         # discard all channel change that are not join a channel
         if before.channel == after.channel:
             return
-        thread = discord.utils.get(member.guild.threads, name=f"{member.display_name}-blindtest")
+        thread = discord.utils.get(member.guild.threads, name=f"{member.display_name}-{channel_name}")
         await thread.delete()
         
 @bot.event
@@ -406,9 +374,9 @@ async def on_message(message):
         return
     if waiting_for_answer:
         return
-    if message.channel != channel and message.channel.name != f"{message.author.display_name}-blindtest":
+    if message.channel != channel and message.channel.name != f"{message.author.display_name}-{channel_name}":
         print("message.channel != channel :", message.channel != channel, message.channel ,  channel)
-        print("message.channel.name != f{message.author.display_name}-blindtest", message.channel.name != f"{message.author.display_name}-blindtest", message.channel, f"{message.author.display_name}-blindtest")
+        print("message.channel.name != f{message.author.display_name}-{channel_name}", message.channel.name != f"{message.author.display_name}-{channel_name}", message.channel, f"{message.author.display_name}-{channel_name}")
         return
     if is_blindest_running:
         title = current_music.title

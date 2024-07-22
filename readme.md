@@ -2,6 +2,8 @@
 
 Discord Bot to play blind tests on Discord. This bot was initially developed for a student Association.
 
+<span style="color:red">Caution: this code need to be cleaned, it is not finished yet</span>.
+
 ## Installation
 
 1. Add the bot to your discord server
